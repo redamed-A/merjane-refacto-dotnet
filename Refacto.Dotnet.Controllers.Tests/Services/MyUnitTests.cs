@@ -37,7 +37,7 @@ namespace Refacto.DotNet.Controllers.Tests.Services
             };
 
             // WHEN
-            _productService.NotifyDelay(product.LeadTime, product);
+            _productService.ProcessProduct(product);
 
             // THEN
             Assert.Equal(0, product.Available);

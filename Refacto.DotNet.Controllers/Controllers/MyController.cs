@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Refacto.DotNet.Controllers.Database.Context;
 using Refacto.DotNet.Controllers.Dtos.Product;
+using Refacto.DotNet.Controllers.Services;
 using Refacto.DotNet.Controllers.Services.Impl;
 
 namespace Refacto.DotNet.Controllers.Controllers
@@ -10,32 +11,38 @@ namespace Refacto.DotNet.Controllers.Controllers
     [Route("orders")]
     public class OrdersController : ControllerBase
     {
-        private readonly ProductService _ps;
+        private readonly IOrderService _orderService;
+        private readonly IProductService _productService;
         private readonly AppDbContext _ctx;
 
-        public OrdersController(ProductService ps, AppDbContext ctx)
+        public OrdersController(IOrderService orderService, IProductService productService, AppDbContext ctx)
         {
-            _ps = ps;
+            _orderService = orderService;
+            _productService = productService;
             _ctx = ctx;
         }
 
         [HttpPost("{orderId}/processOrder")]
         [ProducesResponseType(200)]
-        public ActionResult<ProcessOrderResponse> ProcessOrder(long orderId)
+        public async Task<ActionResult<ProcessOrderResponse>> ProcessOrder(long orderId)
         {
-            Entities.Order? order = _ctx.Orders
-               .Include(o => o.Items)
-               .SingleOrDefault(o => o.Id == orderId);
-            Console.WriteLine(order);
-            List<long> ids = new() { orderId };
-            ICollection<Entities.Product>? products = order.Items;
-
-            foreach (Entities.Product p in products)
+            try
             {
-                _ps.ProcessProduct(p);
-            }
+                var order = await _orderService.GetOrder(orderId);
+                if (order.Items != null)
+                {
+                    foreach (var p in order.Items)
+                    {
+                        _productService.ProcessProduct(p);
+                    }
+                }
 
-            return new ProcessOrderResponse(order.Id);
+                return new ProcessOrderResponse(order.Id);
+            }
+            catch (ArgumentException)
+            {
+                return NotFound($"Order {orderId} not found");
+            }
         }
     }
 }

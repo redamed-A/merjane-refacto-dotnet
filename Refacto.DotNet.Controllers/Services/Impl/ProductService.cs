@@ -4,7 +4,7 @@ using Refacto.DotNet.Controllers.Services.Strategies;
 
 namespace Refacto.DotNet.Controllers.Services.Impl
 {
-    public class ProductService
+    public class ProductService : IProductService
     {
         private readonly INotificationService _ns;
         private readonly AppDbContext _ctx;

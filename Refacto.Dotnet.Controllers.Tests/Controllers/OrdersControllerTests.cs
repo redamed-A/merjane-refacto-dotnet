@@ -18,7 +18,8 @@ namespace Refacto.DotNet.Controllers.Tests.Controllers
     {
         private readonly Mock<INotificationService> _mockNotificationService;
         private readonly Mock<AppDbContext> _mockDbContext;
-        private readonly ProductService _productService;
+        private readonly IProductService _productService;
+        private readonly IOrderService _orderService;
         private readonly OrdersController _controller;
 
         public OrdersControllerTests()
@@ -30,7 +31,8 @@ namespace Refacto.DotNet.Controllers.Tests.Controllers
             _mockDbContext.Setup(x => x.Products).ReturnsDbSet(new List<Product>());
 
             _productService = new ProductService(_mockNotificationService.Object, _mockDbContext.Object);
-            _controller = new OrdersController(_productService, _mockDbContext.Object);
+            _orderService = new OrderService(_mockDbContext.Object);
+            _controller = new OrdersController(_orderService, _productService, _mockDbContext.Object);
         }
 
         private void SetupOrder(long orderId, Product product)
@@ -44,12 +46,12 @@ namespace Refacto.DotNet.Controllers.Tests.Controllers
         }
 
         [Fact]
-        public void ProcessOrder_NormalProduct_Available_DecrementsStock()
+        public async Task ProcessOrder_NormalProduct_Available_DecrementsStock()
         {
             var product = new Product { Id = 1, Type = "NORMAL", Available = 10, LeadTime = 5, Name = "P1" };
             SetupOrder(1, product);
 
-            _controller.ProcessOrder(1);
+            await _controller.ProcessOrder(1);
 
             Assert.Equal(9, product.Available);
             _mockDbContext.Verify(x => x.SaveChanges(), Times.Once);
@@ -57,12 +59,12 @@ namespace Refacto.DotNet.Controllers.Tests.Controllers
         }
 
         [Fact]
-        public void ProcessOrder_NormalProduct_NotAvailable_NotifiesDelay()
+        public async Task ProcessOrder_NormalProduct_NotAvailable_NotifiesDelay()
         {
             var product = new Product { Id = 1, Type = "NORMAL", Available = 0, LeadTime = 5, Name = "P1" };
             SetupOrder(1, product);
 
-            _controller.ProcessOrder(1);
+            await _controller.ProcessOrder(1);
 
             Assert.Equal(0, product.Available);
             _mockDbContext.Verify(x => x.SaveChanges(), Times.Once);
@@ -70,7 +72,7 @@ namespace Refacto.DotNet.Controllers.Tests.Controllers
         }
 
         [Fact]
-        public void ProcessOrder_SeasonalProduct_InSeason_Available_DecrementsStock()
+        public async Task ProcessOrder_SeasonalProduct_InSeason_Available_DecrementsStock()
         {
             var product = new Product
             {
@@ -84,14 +86,14 @@ namespace Refacto.DotNet.Controllers.Tests.Controllers
             };
             SetupOrder(1, product);
 
-            _controller.ProcessOrder(1);
+            await _controller.ProcessOrder(1);
 
             Assert.Equal(9, product.Available);
             _mockDbContext.Verify(x => x.SaveChanges(), Times.Once);
         }
 
         [Fact]
-        public void ProcessOrder_SeasonalProduct_BeforeSeason_NotifiesOutOfStock()
+        public async Task ProcessOrder_SeasonalProduct_BeforeSeason_NotifiesOutOfStock()
         {
             var product = new Product
             {
@@ -105,13 +107,13 @@ namespace Refacto.DotNet.Controllers.Tests.Controllers
             };
             SetupOrder(1, product);
 
-            _controller.ProcessOrder(1);
+            await _controller.ProcessOrder(1);
 
             _mockNotificationService.Verify(x => x.SendOutOfStockNotification("P1"), Times.Once);
         }
 
         [Fact]
-        public void ProcessOrder_SeasonalProduct_AfterSeason_NotifiesOutOfStock()
+        public async Task ProcessOrder_SeasonalProduct_AfterSeason_NotifiesOutOfStock()
         {
             var product = new Product
             {
@@ -125,14 +127,14 @@ namespace Refacto.DotNet.Controllers.Tests.Controllers
             };
             SetupOrder(1, product);
 
-            _controller.ProcessOrder(1);
+            await _controller.ProcessOrder(1);
 
             _mockNotificationService.Verify(x => x.SendOutOfStockNotification("P1"), Times.Once);
             Assert.Equal(0, product.Available);
         }
 
         [Fact]
-        public void ProcessOrder_SeasonalProduct_InSeason_NotAvailable_LeadTimeWithinSeason_NotifiesDelay()
+        public async Task ProcessOrder_SeasonalProduct_InSeason_NotAvailable_LeadTimeWithinSeason_NotifiesDelay()
         {
             var product = new Product
             {
@@ -146,13 +148,13 @@ namespace Refacto.DotNet.Controllers.Tests.Controllers
             };
             SetupOrder(1, product);
 
-            _controller.ProcessOrder(1);
+            await _controller.ProcessOrder(1);
 
             _mockNotificationService.Verify(x => x.SendDelayNotification(5, "P1"), Times.Once);
         }
 
         [Fact]
-        public void ProcessOrder_SeasonalProduct_InSeason_NotAvailable_LeadTimeExceedsSeason_NotifiesOutOfStock()
+        public async Task ProcessOrder_SeasonalProduct_InSeason_NotAvailable_LeadTimeExceedsSeason_NotifiesOutOfStock()
         {
             var product = new Product
             {
@@ -166,14 +168,14 @@ namespace Refacto.DotNet.Controllers.Tests.Controllers
             };
             SetupOrder(1, product);
 
-            _controller.ProcessOrder(1);
+            await _controller.ProcessOrder(1);
 
             _mockNotificationService.Verify(x => x.SendOutOfStockNotification("P1"), Times.Once);
             Assert.Equal(0, product.Available);
         }
 
         [Fact]
-        public void ProcessOrder_ExpirableProduct_NotExpired_Available_DecrementsStock()
+        public async Task ProcessOrder_ExpirableProduct_NotExpired_Available_DecrementsStock()
         {
             var product = new Product
             {
@@ -186,14 +188,14 @@ namespace Refacto.DotNet.Controllers.Tests.Controllers
             };
             SetupOrder(1, product);
 
-            _controller.ProcessOrder(1);
+            await _controller.ProcessOrder(1);
 
             Assert.Equal(9, product.Available);
             _mockDbContext.Verify(x => x.SaveChanges(), Times.Once);
         }
 
         [Fact]
-        public void ProcessOrder_ExpirableProduct_Expired_NotifiesExpiration()
+        public async Task ProcessOrder_ExpirableProduct_Expired_NotifiesExpiration()
         {
             var expiryDate = DateTime.Now.AddDays(-1);
             var product = new Product
@@ -207,14 +209,14 @@ namespace Refacto.DotNet.Controllers.Tests.Controllers
             };
             SetupOrder(1, product);
 
-            _controller.ProcessOrder(1);
+            await _controller.ProcessOrder(1);
 
             _mockNotificationService.Verify(x => x.SendExpirationNotification("P1", expiryDate), Times.Once);
             Assert.Equal(0, product.Available);
         }
 
         [Fact]
-        public void ProcessOrder_ExpirableProduct_NotExpired_NotAvailable_NotifiesExpiration()
+        public async Task ProcessOrder_ExpirableProduct_NotExpired_NotAvailable_NotifiesExpiration()
         {
             var expiryDate = DateTime.Now.AddDays(10);
             var product = new Product
@@ -228,7 +230,7 @@ namespace Refacto.DotNet.Controllers.Tests.Controllers
             };
             SetupOrder(1, product);
 
-            _controller.ProcessOrder(1);
+            await _controller.ProcessOrder(1);
 
             _mockNotificationService.Verify(x => x.SendExpirationNotification("P1", expiryDate), Times.Once);
             Assert.Equal(0, product.Available);

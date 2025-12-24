@@ -37,7 +37,6 @@ namespace Refacto.DotNet.Controllers.Controllers
                     if (p.Available > 0)
                     {
                         p.Available -= 1;
-                        _ctx.Entry(p).State = EntityState.Modified;
                         _ = _ctx.SaveChanges();
 
                     }

@@ -1,16 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Moq;
+﻿using Moq;
 using Moq.EntityFrameworkCore;
 using Refacto.DotNet.Controllers.Controllers;
 using Refacto.DotNet.Controllers.Database.Context;
-using Refacto.DotNet.Controllers.Dtos.Product;
 using Refacto.DotNet.Controllers.Entities;
 using Refacto.DotNet.Controllers.Services;
 using Refacto.DotNet.Controllers.Services.Impl;
-using System;
-using System.Collections.Generic;
-using Xunit;
 
 namespace Refacto.DotNet.Controllers.Tests.Controllers
 {
